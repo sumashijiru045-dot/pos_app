@@ -7,17 +7,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',           // ← 自動更新
-      devOptions: { enabled: true },        // 開発中でもPWA動く
-      includeAssets: [
-        'favicon.ico',
-        'apple-touch-icon.png',
-        'mask-icon.svg',
-      ],
+      registerType: 'autoUpdate',
+      devOptions: { enabled: true },
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Minnano POS',
         short_name: 'POS',
-        start_url: '/',                     // ルートから起動
+        start_url: '/',
         display: 'standalone',
         background_color: '#ffffff',
         theme_color: '#000000',
@@ -27,14 +23,14 @@ export default defineConfig({
         ],
       },
 
-      // ★ここを追加：画像をオフラインでも表示できるようにキャッシュ
+      // ★ここが重要：オフラインで画像を出す / 大きい画像でビルド落ちないようにする
       workbox: {
-        // ビルド成果物と一緒にプリキャッシュする拡張子
-        globPatterns: ['**/*.{js,css,html,ico,svg,png,jpg,jpeg,webp,avif}'],
+        // 2MiB超のアセットでビルドが止まらないように上限を引き上げ
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6MB まで許容
 
-        // ランタイムキャッシュ（アクセスされたらキャッシュ、以降はキャッシュ優先）
+        // 配信中にキャッシュするパターン
         runtimeCaching: [
-          // /images/ 配下（同一オリジン）の画像を Cache First
+          // 同一オリジンの /images/ は Cache First（最初に取れたら以後はオフラインOK）
           {
             urlPattern: ({ url }) =>
               url.origin === self.location.origin && url.pathname.startsWith('/images/'),
@@ -42,29 +38,29 @@ export default defineConfig({
             options: {
               cacheName: 'images-same-origin',
               expiration: {
-                maxEntries: 200,                 // 画像最大200枚
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30日
-              }
-            }
+                maxEntries: 300,
+                maxAgeSeconds: 60 * 60 * 24 * 90, // 90日
+              },
+            },
           },
-          // 失敗時でもUIが動くようにアプリ本体は NetworkFirst
+          // アプリ本体は NetworkFirst（オンラインあれば最新、なければキャッシュ）
           {
             urlPattern: ({ url }) =>
-              url.origin === self.location.origin &&
-              /\.(?:js|css|html)$/.test(url.pathname),
+              url.origin === self.location.origin && /\.(?:js|css|html)$/.test(url.pathname),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'app-shell',
-              networkTimeoutSeconds: 4
-            }
-          }
-        ]
-      }
+              networkTimeoutSeconds: 4,
+            },
+          },
+        ],
+
+        // ビルド成果物のプリキャッシュ対象（拡張子）
+        globPatterns: ['**/*.{js,css,html,ico,svg,png,jpg,jpeg,webp,avif}'],
+      },
     }),
   ],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: { '@': path.resolve(__dirname, './src') },
   },
 })
