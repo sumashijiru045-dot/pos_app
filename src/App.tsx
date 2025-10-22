@@ -3,6 +3,17 @@ import { Button } from "./components/ui/button";
 import { Card, CardContent } from "./components/ui/card";
 import * as XLSX from "xlsx";
 
+// ファイル先頭付近に追加
+const LS_ORDERS = "pos.orders.v2";
+const LS_ACTIVE = "pos.activeOrder.v2";
+const LS_MENU = "pos.menu.v2";
+
+// 衝突しにくいID（日時＋ランダム）
+const nextOrderId = () =>
+  `${todayPrefix()}-${Math.floor(Date.now() / 1000)
+    .toString()
+    .slice(-5)}-${Math.random().toString(36).slice(2,5)}`;
+
 interface MenuItem {
   id: string | number;
   name: string;
@@ -46,8 +57,6 @@ const todayPrefix = () => {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}${mm}${dd}`;
 };
-let counterSeed = 1;
-const nextOrderId = () => `${todayPrefix()}-${String(counterSeed++).padStart(3, "0")}`;
 
 async function fileToResizedDataUrl(file: File, maxSize = 800, quality = 0.72): Promise<string> {
   const img = document.createElement("img");
@@ -135,13 +144,22 @@ const DEFAULT_MENU: MenuItem[] = [
 export default function App() {
   const [view, setView] = useState<"home" | "orders" | "checkout" | "receipt" | "settings" | "history">("home");
   const [tab, setTab] = useState<"All" | "Drink" | "Food" | "Cookie" | "Other">("All");
-  const [menu, setMenu] = useState<MenuItem[]>(DEFAULT_MENU);
+  const [menu, setMenu] = useState<MenuItem[]>(() => {
+  try { const s = localStorage.getItem(LS_MENU); return s ? JSON.parse(s) : DEFAULT_MENU; }
+  catch { return DEFAULT_MENU; }
+});
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [justAddedId, setJustAddedId] = useState<string | number | null>(null);
   const [drawerFlash, setDrawerFlash] = useState(false);
   const [ariaMsg, setAriaMsg] = useState("");
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Order[]>(() => {
+  try { const s = localStorage.getItem(LS_ORDERS); return s ? JSON.parse(s) : []; }
+  catch { return []; }
+});
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(() => {
+  try { return localStorage.getItem(LS_ACTIVE) as string | null; }
+  catch { return null; }
+});
   const activeOrder = useMemo(() => orders.find((o) => o.id === activeOrderId) || null, [orders, activeOrderId]);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -158,6 +176,22 @@ export default function App() {
     setFxRate(0);
     setFxCurrency("USD");
   }, [activeOrderId]);
+
+  useEffect(() => {
+  try { localStorage.setItem(LS_MENU, JSON.stringify(menu)); } catch {}
+}, [menu]);
+
+useEffect(() => {
+  try { localStorage.setItem(LS_ORDERS, JSON.stringify(orders)); } catch {}
+}, [orders]);
+
+useEffect(() => {
+  try {
+    if (activeOrderId) localStorage.setItem(LS_ACTIVE, activeOrderId);
+    else localStorage.removeItem(LS_ACTIVE);
+  } catch {}
+}, [activeOrderId]);
+
 
   const filteredMenu = tab === "All" ? menu : menu.filter((m) => m.category === tab);
 
