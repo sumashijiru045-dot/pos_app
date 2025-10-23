@@ -23,15 +23,14 @@ export default defineConfig({
         ],
       },
 
-      // ★ここが重要：オフラインで画像を出す / 大きい画像でビルド落ちないようにする
+      // 画像はプリキャッシュせず、ランタイムで Cache First
       workbox: {
-        // 2MiB超のアセットでビルドが止まらないように上限を引き上げ
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6MB まで許容
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6MB
+        cleanupOutdatedCaches: true,
 
-        // 配信中にキャッシュするパターン
         runtimeCaching: [
-          // 同一オリジンの /images/ は Cache First（最初に取れたら以後はオフラインOK）
           {
+            // /images/（同一オリジン）の画像をキャッシュ優先
             urlPattern: ({ url }) =>
               url.origin === self.location.origin && url.pathname.startsWith('/images/'),
             handler: 'CacheFirst',
@@ -43,8 +42,8 @@ export default defineConfig({
               },
             },
           },
-          // アプリ本体は NetworkFirst（オンラインあれば最新、なければキャッシュ）
           {
+            // アプリ本体は NetworkFirst
             urlPattern: ({ url }) =>
               url.origin === self.location.origin && /\.(?:js|css|html)$/.test(url.pathname),
             handler: 'NetworkFirst',
@@ -55,8 +54,8 @@ export default defineConfig({
           },
         ],
 
-        // ビルド成果物のプリキャッシュ対象（拡張子）
-        globPatterns: ['**/*.{js,css,html,ico,svg,png,jpg,jpeg,webp,avif}'],
+        // ★ここを画像を含まない拡張子にする（プリキャッシュから画像除外）
+        globPatterns: ['**/*.{js,css,html,ico,svg}'],
       },
     }),
   ],
